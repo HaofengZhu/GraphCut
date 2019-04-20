@@ -3,9 +3,6 @@
 #include <stdexcept>
 #include <iostream>
 
-#define FOREGROUD_LABEL 1
-#define BACKGROUD_LABEL 2
-
 GraphCut::GraphCut()
 {
     graph = nullptr;
@@ -15,6 +12,11 @@ GraphCut::GraphCut()
 void GraphCut::loadImage(std::string img_path)
 {
     img = cv::imread(img_path);
+}
+
+void GraphCut::loadImage(cv::Mat& img)
+{
+    this->img = img;
 }
 
 void GraphCut::saveBinarizedImg()
@@ -27,9 +29,9 @@ void GraphCut::saveBinarizedImg()
         for(int j = 0; j < col; ++j)
         {
             if(res_mask[i][j] == BACKGROUD_LABEL)
-                binImg.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,255);
-            else
                 binImg.at<cv::Vec3b>(i,j) = cv::Vec3b(0, 0, 0);
+            else
+                binImg.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,255);
         }
     }
     cv::imwrite(imgPath, binImg);
@@ -111,32 +113,58 @@ void GraphCut::run(PointList& fpos, PointList& bpos)
 
     // compute and assign s_weight, t_weight in the graph
 
+//    double maxWeight = 1e10;
+//    cv::Mat fore_probs(img.rows, img.cols, CV_64FC1);
+//    cv::Mat back_probs(img.rows, img.cols, CV_64FC1);
+//    fitGMMProb(fpos, bpos, fore_probs, back_probs);
+//    updateSeed(fpos, bpos);
+
+//	for (int x = 0; x < col; ++x)
+//	{
+//		for (int y = 0; y < row; ++y)
+//		{
+//			uchar label = seed.at<uchar>(y, x);
+//			double s_weight = 0;
+//			double t_weight = 0;
+//			if (label == FOREGROUD_LABEL)
+//				s_weight = maxWeight;
+//			else if (label == BACKGROUD_LABEL)
+//				t_weight = maxWeight;
+//			else
+//			{
+//				s_weight = -log(back_probs.at<double>(y, x));
+//				t_weight = -log(fore_probs.at<double>(y, x));
+//			}
+//            int idx = x * row + y;
+//            graph->add_tweights(idx, s_weight, t_weight);
+//		}
+//	}
     double maxWeight = 1e10;
-    cv::Mat fore_probs(img.rows, img.cols, CV_64FC1);
-    cv::Mat back_probs(img.rows, img.cols, CV_64FC1);
+    double_mat fore_probs(img.rows, std::vector<double>(img.cols, 0));
+    double_mat back_probs(img.rows, std::vector<double>(img.cols, 0));
     fitGMMProb(fpos, bpos, fore_probs, back_probs);
     updateSeed(fpos, bpos);
 
-	for (int x = 0; x < col; ++x)
-	{
-		for (int y = 0; y < row; ++y)
-		{
-			uchar label = seed.at<uchar>(y, x);
-			double s_weight = 0;
-			double t_weight = 0;
-			if (label == FOREGROUD_LABEL)
-				s_weight = maxWeight;
-			else if (label == BACKGROUD_LABEL)
-				t_weight = maxWeight;
-			else
-			{
-				s_weight = -log(back_probs.at<double>(y, x));
-				t_weight = -log(fore_probs.at<double>(y, x));
-			}
+    for (int x = 0; x < col; ++x)
+    {
+        for (int y = 0; y < row; ++y)
+        {
+            uchar label = seed.at<uchar>(y, x);
+            double s_weight = 0;
+            double t_weight = 0;
+            if (label == FOREGROUD_LABEL)
+                s_weight = maxWeight;
+            else if (label == BACKGROUD_LABEL)
+                t_weight = maxWeight;
+            else
+            {
+                s_weight = -log(back_probs[y][x]);
+                t_weight = -log(fore_probs[y][x]);
+            }
             int idx = x * row + y;
             graph->add_tweights(idx, s_weight, t_weight);
-		}
-	}
+        }
+    }
 
     double flow = graph->maxflow();
     printf("flow = %f\n", flow);
@@ -152,7 +180,7 @@ void GraphCut::run(PointList& fpos, PointList& bpos)
         for(int y = 0; y < row; ++y)
         {
             int idx = x * row + y;
-            if(graph->what_segment(idx) == GraphType::SOURCE)
+            if(graph->what_segment(idx) == GraphType::SINK)
                 res_mask[y][x] = BACKGROUD_LABEL;
             else
                 res_mask[y][x] = FOREGROUD_LABEL;
@@ -236,6 +264,73 @@ void GraphCut::fitGMMProb(PointList& fpos, PointList &bpos,
 			double back_pred = back_gmm_model->predict2(sample, cv::noArray())[0];
             fore_probs.at<double>(x,y) = exp(fore_pred);
             back_probs.at<double>(x,y) = exp(back_pred);
+        }
+    }
+}
+
+void GraphCut::fitGMMProb(PointList &fpos, PointList &bpos, double_mat &fore_probs, double_mat &back_probs)
+{
+    using namespace cv::ml;
+    using cv::Mat;
+    using cv::Vec3b;
+
+    int channel = img.channels();
+    em_n_cluster = channel;
+
+
+
+    Mat foreMat = Mat::zeros(fpos.size(), channel, CV_64FC1);
+    Mat backMat = Mat::zeros(bpos.size(), channel, CV_64FC1);
+
+    for(int i = 0; i < fpos.size(); ++i)
+    {
+        Vec3b rgb = img.at<Vec3b>(fpos[i].first, fpos[i].second);
+        double* data = foreMat.ptr<double>(i);
+        data[0] = static_cast<double>(rgb[0]);
+        data[1] = static_cast<double>(rgb[1]);
+        data[2] = static_cast<double>(rgb[2]);
+    }
+
+    for(int i = 0; i < bpos.size(); ++i)
+    {
+        Vec3b rgb = img.at<Vec3b>(bpos[i].first, bpos[i].second);
+        double* data = backMat.ptr<double>(i);
+        data[0] = static_cast<double>(rgb[0]);
+        data[1] = static_cast<double>(rgb[1]);
+        data[2] = static_cast<double>(rgb[2]);
+    }
+
+    if(fore_gmm_model.empty() || back_gmm_model.empty())
+    {
+        fore_gmm_model = EM::create();
+        fore_gmm_model->setClustersNumber(em_n_cluster);
+        fore_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
+
+        back_gmm_model = EM::create();
+        back_gmm_model->setClustersNumber(em_n_cluster);
+        back_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
+    }
+
+    Mat fore_labels;
+    fore_gmm_model->trainEM(foreMat);
+
+    Mat back_labels;
+    back_gmm_model->trainEM(backMat);
+
+    Mat sample(1, channel, CV_64FC1);
+    for(int x = 0; x < img.rows; ++x)
+    {
+        for(int y = 0; y < img.cols; ++y)
+        {
+            Vec3b rgb = img.at<Vec3b>(x,y);
+            double* data = sample.ptr<double>(0);
+            data[0] = static_cast<double>(rgb[0]);
+            data[1] = static_cast<double>(rgb[1]);
+            data[2] = static_cast<double>(rgb[2]);
+            double fore_pred = fore_gmm_model->predict2(sample, cv::noArray())[0];
+            double back_pred = back_gmm_model->predict2(sample, cv::noArray())[0];
+            fore_probs[x][y] = exp(fore_pred);
+            back_probs[x][y] = exp(back_pred);
         }
     }
 }
