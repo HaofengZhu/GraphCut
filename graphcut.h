@@ -19,6 +19,7 @@ class GraphCut
 
 public:
     GraphCut();
+    ~GraphCut();
     void loadImage(std::string img_path);
     void loadImage(cv::Mat& img);
     void run(PointList& fpos, PointList& bpos);

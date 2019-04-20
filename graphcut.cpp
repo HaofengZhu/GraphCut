@@ -9,6 +9,15 @@ GraphCut::GraphCut()
 }
 
 
+GraphCut::~GraphCut()
+{
+    fore_gmm_model.release();
+    back_gmm_model.release();
+    graph->reset();
+    img.release();
+    seed.release();
+}
+
 void GraphCut::loadImage(std::string img_path)
 {
     img = cv::imread(img_path);
@@ -44,8 +53,8 @@ std::vector<std::vector<int>>& GraphCut::getLabelMask()
 
 void GraphCut::clear()
 {
-    delete graph;
-    graph = nullptr;
+    graph->reset();
+    seed.release();
     res_mask.resize(0);
     fore_gmm_model.release();
     back_gmm_model.release();
