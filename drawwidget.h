@@ -10,6 +10,7 @@ class DrawWidget : public QWidget
 public:
     explicit DrawWidget(int width,int height,QWidget *parent=nullptr);
     void setImage(QImage& img);
+    void setImagePath(std::string img_path);
     void setForeOrBack(bool isFore);
     void setLineWidth(int w);
     void mousePressEvent(QMouseEvent* e);
@@ -28,7 +29,8 @@ private:
     int width;
     int height;
     int lineWidth;
-    QImage origion_img;
+    std::string img_path;
+    QImage origin_img;
     QPixmap draw_img;
     QImage result_img;
     QPoint startPos;
@@ -36,6 +38,10 @@ private:
     QVector<QPoint> backPos;
     GraphCut gc;
 
+    int img_wid;
+    int img_hei;
+
+    bool dropout(QPoint point);
 };
 
 #endif // DRAWWIDGET_H

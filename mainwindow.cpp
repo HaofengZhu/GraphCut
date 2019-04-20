@@ -35,6 +35,7 @@ void MainWindow::on_fileToolButton_clicked()
         return;
     }
     drawWidget->setImage(img);
+    drawWidget->setImagePath(filePath.toStdString());
 }
 
 void MainWindow::on_clearButton_clicked()

@@ -28,15 +28,26 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     drawwidget.cpp \
-    graphcut.cpp
+    graphcut.cpp \
+    maxflow-v3.04.src/graph.cpp \
+    maxflow-v3.04.src/maxflow.cpp
 
 HEADERS += \
         mainwindow.h \
     drawwidget.h \
-    graphcut.h
+    graphcut.h \
+    maxflow-v3.04.src/block.h \
+    maxflow-v3.04.src/graph.h
 
 FORMS += \
         mainwindow.ui
+
+INCLUDEPATH += C:\OpenCV\build_x86\install\include
+INCLUDEPATH += C:\OpenCV\build_x86\install\include\opencv
+INCLUDEPATH += C:\OpenCV\build_x86\install\include\opencv2
+
+LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_img_hash345d.lib
+LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_world345d.lib
 
 CONFIG += mobility
 MOBILITY = 

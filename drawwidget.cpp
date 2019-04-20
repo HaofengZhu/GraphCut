@@ -26,12 +26,15 @@ void DrawWidget::setImage(QImage& img)
     result_img=img;//浅拷贝
     draw_img=QPixmap::fromImage(img);
 
+    img_wid = img.size().width();
+    img_hei = img.size().height();
+
     this->setAutoFillBackground(true);
-    int width=img.size().width();
-    int height=img.size().height();
-    if(width>height)
+    int width = img.size().width();
+    int height = img.size().height();
+    if(width > height)
     {
-        height=height*this->size().width()/width;
+        height = height*this->size().width()/width;
         width=this->size().width();
     }
     else {
@@ -41,14 +44,19 @@ void DrawWidget::setImage(QImage& img)
 
     result_img=img.scaled(width,height, Qt::KeepAspectRatio,
                           Qt::SmoothTransformation);
-    origion_img=result_img.copy();
-    draw_img=QPixmap::fromImage(origion_img);
+    origin_img=result_img.copy();
+    draw_img=QPixmap::fromImage(origin_img);
 
     this->setFixedSize(width,height);
     QPalette pal=this->palette();
-    pal.setBrush(QPalette::Background,origion_img);
+    pal.setBrush(QPalette::Background,origin_img);
     this->setPalette(pal);
 
+}
+
+void DrawWidget::setImagePath(std::string img_path)
+{
+    this->img_path = img_path;
 }
 
 void DrawWidget::setForeOrBack(bool isFore)
@@ -106,27 +114,36 @@ void DrawWidget::compute()
 //    {
 //        QMessageBox::about(nullptr, "Warning", "please draw foreground and backgroud");
 //    }
-    std::vector<std::vector<int> > backP;
-    std::vector<std::vector<int> > foreP;
+    std::vector<std::pair<int,int> > backP;
+    std::vector<std::pair<int,int> > foreP;
+
+    int max_x = origin_img.size().width();
+    int max_y = origin_img.size().height();
     for(int i=0;i<forePos.size();i++)
     {
-        std::vector<int> pos;
-        pos.push_back(forePos[i].x());
-        pos.push_back(forePos[i].y());
-        foreP.push_back(pos);
+        if(!dropout(forePos[i]))
+        {
+            int reg_x = forePos[i].x() / float(max_x) * (img_wid-1);
+            int reg_y = forePos[i].y() / float(max_y) * (img_hei-1);
+            foreP.push_back(std::make_pair(reg_x, reg_y));
+        }
     }
 
     for(int i=0;i<backPos.size();i++)
     {
-        std::vector<int> pos;
-        pos.push_back(backPos[i].x());
-        pos.push_back(backPos[i].y());
-        backP.push_back(pos);
+        if(!dropout(backPos[i]))
+        {
+            int reg_x = backPos[i].x() / float(max_x) * (img_wid-1);
+            int reg_y = backPos[i].y() / float(max_y) * (img_hei-1);
+            backP.push_back(std::make_pair(reg_x, reg_y));
+        }
     }
     gc.setBackPositions(backP);
     gc.setForePositions(foreP);
-    gc.setImage(origion_img);
-    result_img=gc.compute();
+//    gc.setImage(origion_img);
+//    result_img=gc.compute();
+    gc.loadImage(this->img_path);
+    gc.mincut(foreP, backP);
 
     this->setAutoFillBackground(true);
     qDebug()<<"start compute.";
@@ -139,7 +156,7 @@ void DrawWidget::compute()
 
 void DrawWidget::clear()
 {
-    setImage(this->origion_img);
+    setImage(this->origin_img);
     backPos.clear();
     forePos.clear();
 }
@@ -148,4 +165,11 @@ void DrawWidget::paintEvent(QPaintEvent *e)
 {
     QPainter painter(this);
     painter.drawPixmap (QPoint(0,0),draw_img);
+}
+
+bool DrawWidget::dropout(QPoint point) {
+    int x = point.x(), y = point.y();
+    if(x < 0 || x > origin_img.size().width()) return true;
+    if(y < 0 || y > origin_img.size().height()) return true;
+    return false;
 }
