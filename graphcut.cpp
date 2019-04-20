@@ -8,102 +8,114 @@
 
 GraphCut::GraphCut()
 {
-
+    graph = nullptr;
 }
 
-//void GraphCut::setImage(QImage img)
-//{
-//    this->img=img;
-//}
-
-void GraphCut::setBackPositions(std::vector<std::pair<int,int> > poses)
-{
-    backPositions=poses;
-}
-
-void GraphCut::setForePositions(std::vector<std::pair<int,int> > poses)
-{
-    forePositions=poses;
-}
 
 void GraphCut::loadImage(std::string img_path)
 {
     img = cv::imread(img_path);
 }
-//
-//QImage GraphCut::compute()
-//{
-//    return QImage();
-//}
+
+void GraphCut::saveBinarizedImg()
+{
+    int row = res_mask.size(), col = res_mask[0].size();
+    std::string imgPath("C:/Projects/GraphCut/image/res.jpg");
+    cv::Mat binImg(row, col, CV_8UC3);
+    for(int i = 0; i < row; ++i)
+    {
+        for(int j = 0; j < col; ++j)
+        {
+            if(res_mask[i][j] == BACKGROUD_LABEL)
+                binImg.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,255);
+            else
+                binImg.at<cv::Vec3b>(i,j) = cv::Vec3b(0, 0, 0);
+        }
+    }
+    cv::imwrite(imgPath, binImg);
+}
+
+std::vector<std::vector<int>>& GraphCut::getLabelMask()
+{
+    return this->res_mask;
+}
 
 void GraphCut::clear()
 {
-    backPositions.clear();
-    forePositions.clear();
+    delete graph;
+    graph = nullptr;
+    res_mask.resize(0);
+    fore_gmm_model.release();
+    back_gmm_model.release();
 }
 
-void GraphCut::mincut(std::vector<std::pair<int, int> > fpos, std::vector<std::pair<int, int> > bpos)
+void GraphCut::run(PointList& fpos, PointList& bpos)
 {
     int row = img.rows;
     int col = img.cols;
 
-    typedef Graph<double, double, double> GraphType;
-    GraphType *graph = new GraphType(row * col, 2 * row * col);
-    graph->add_node(row * col);
+    // if graph not constructed, create one and assign n_weight at the first time
+    if(graph == nullptr)
+    {
+        graph = new GraphType(row * col, 2 * row * col);
+        graph->add_node(row * col);
 
-    double maxWeight = -1e20;
-	for (int x = 0; x < col; ++x)
-	{
-		for (int y = 0; y < row; ++y)
-		{
-			int upperPointx = x;
-			int upperPointy = y - 1;
-			int leftPointx = x - 1;
-			int leftPointy = y;
-			double n_weight = 0;
-			if (upperPointy >= 0 && upperPointy < row)
-			{
-				double sqr_diff = 0;
+        double maxWeight = -1e20;
+        for (int x = 0; x < col; ++x)
+        {
+            for (int y = 0; y < row; ++y)
+            {
+                int upperPointx = x;
+                int upperPointy = y - 1;
+                int leftPointx = x - 1;
+                int leftPointy = y;
+                double n_weight = 0;
+                if (upperPointy >= 0 && upperPointy < row)
+                {
+                    double sqr_diff = 0;
 
-				cv::Vec3b cur_rgb = img.at<cv::Vec3b>(y, x);
-				cv::Vec3b upp_rgb = img.at<cv::Vec3b>(upperPointy, upperPointx);
-				for (int i = 0; i < 3; ++i)
-				{
-					double diff = cur_rgb[i] - upp_rgb[i];
-					sqr_diff += diff * diff;
-				}
+                    cv::Vec3b cur_rgb = img.at<cv::Vec3b>(y, x);
+                    cv::Vec3b upp_rgb = img.at<cv::Vec3b>(upperPointy, upperPointx);
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        double diff = cur_rgb[i] - upp_rgb[i];
+                        sqr_diff += diff * diff;
+                    }
 
-				n_weight = lambda * exp(-sqr_diff / (2 * sigma * sigma));
-				int pIdx = x * row + y;
-				int qIdx = upperPointx * row + upperPointy;
+                    n_weight = lambda * exp(-sqr_diff / (2 * sigma * sigma));
+                    int pIdx = x * row + y;
+                    int qIdx = upperPointx * row + upperPointy;
 
-				graph->add_edge(qIdx, pIdx, n_weight, n_weight);
-			}
-			if (leftPointx >= 0 && leftPointx < col)
-			{
-				double sqr_diff = 0;
+                    graph->add_edge(qIdx, pIdx, n_weight, n_weight);
+                }
+                if (leftPointx >= 0 && leftPointx < col)
+                {
+                    double sqr_diff = 0;
 
-				cv::Vec3b cur_rgb = img.at<cv::Vec3b>(y, x);
-				cv::Vec3b left_rgb = img.at<cv::Vec3b>(leftPointy, leftPointx);
-				for (int i = 0; i < 3; ++i)
-				{
-					double diff = double(cur_rgb[i] - left_rgb[i]);
-					sqr_diff += diff * diff;
-				}
-				n_weight = lambda * exp(-sqr_diff / (2 * sigma * sigma));
-				int pIdx = x * row + y;
-				int qIdx = leftPointx * row + leftPointy;
-				graph->add_edge(qIdx, pIdx, n_weight, n_weight);
-			}
-			if (n_weight > maxWeight) maxWeight = n_weight;
-		}
-	}
-    maxWeight = 1e10;
+                    cv::Vec3b cur_rgb = img.at<cv::Vec3b>(y, x);
+                    cv::Vec3b left_rgb = img.at<cv::Vec3b>(leftPointy, leftPointx);
+                    for (int i = 0; i < 3; ++i)
+                    {
+                        double diff = double(cur_rgb[i] - left_rgb[i]);
+                        sqr_diff += diff * diff;
+                    }
+                    n_weight = lambda * exp(-sqr_diff / (2 * sigma * sigma));
+                    int pIdx = x * row + y;
+                    int qIdx = leftPointx * row + leftPointy;
+                    graph->add_edge(qIdx, pIdx, n_weight, n_weight);
+                }
+                if (n_weight > maxWeight) maxWeight = n_weight;
+            }
+        }
+    }
+
+    // compute and assign s_weight, t_weight in the graph
+
+    double maxWeight = 1e10;
     cv::Mat fore_probs(img.rows, img.cols, CV_64FC1);
     cv::Mat back_probs(img.rows, img.cols, CV_64FC1);
     fitGMMProb(fpos, bpos, fore_probs, back_probs);
-	cv::Mat seed = cv::Mat::zeros(img.rows, img.cols, CV_8UC1);
-    seedMap(fpos, bpos, seed);
+    updateSeed(fpos, bpos);
 
 	for (int x = 0; x < col; ++x)
 	{
@@ -121,19 +133,41 @@ void GraphCut::mincut(std::vector<std::pair<int, int> > fpos, std::vector<std::p
 				s_weight = -log(back_probs.at<double>(y, x));
 				t_weight = -log(fore_probs.at<double>(y, x));
 			}
-			graph->add_tweights(x * row + y, s_weight, t_weight);
+            int idx = x * row + y;
+            graph->add_tweights(idx, s_weight, t_weight);
 		}
 	}
 
-    
     double flow = graph->maxflow();
-    printf("flow = %d\n", flow);
+    printf("flow = %f\n", flow);
 
+
+    //generate label mask
+    if(res_mask.empty())
+    {
+        res_mask = std::vector<std::vector<int>>(row, std::vector<int>(col, 0));
+    }
+    for(int x = 0; x < col; ++x)
+    {
+        for(int y = 0; y < row; ++y)
+        {
+            int idx = x * row + y;
+            if(graph->what_segment(idx) == GraphType::SOURCE)
+                res_mask[y][x] = BACKGROUD_LABEL;
+            else
+                res_mask[y][x] = FOREGROUD_LABEL;
+        }
+    }
+    saveBinarizedImg();
 }
 
 
-void GraphCut::seedMap(std::vector<std::pair<int, int>>& fpos, std::vector<std::pair<int, int>>& bpos, cv::Mat& seed)
+void GraphCut::updateSeed(PointList& fpos, PointList& bpos)
 {
+    if(seed.empty())
+    {
+        seed = cv::Mat::zeros(img.rows, img.cols, CV_8UC1);
+    }
     for(int i = 0; i < fpos.size(); ++i)
         seed.at<uchar>(fpos[i].first, fpos[i].second) = FOREGROUD_LABEL;
     for(int i = 0; i < bpos.size(); ++i)
@@ -141,7 +175,7 @@ void GraphCut::seedMap(std::vector<std::pair<int, int>>& fpos, std::vector<std::
 }
 
 
-void GraphCut::fitGMMProb(std::vector<std::pair<int, int> > &fpos, std::vector<std::pair<int, int> > &bpos,
+void GraphCut::fitGMMProb(PointList& fpos, PointList &bpos,
                           cv::Mat& fore_probs, cv::Mat& back_probs)
 {
     using namespace cv::ml;
@@ -170,20 +204,24 @@ void GraphCut::fitGMMProb(std::vector<std::pair<int, int> > &fpos, std::vector<s
         backMat.at<double>(i,2) = static_cast<double>(rgb[2]);
     }
 
+    if(fore_gmm_model.empty() || back_gmm_model.empty())
+    {
+        fore_gmm_model = EM::create();
+        fore_gmm_model->setClustersNumber(em_n_cluster);
+        fore_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
+
+        back_gmm_model = EM::create();
+        back_gmm_model->setClustersNumber(em_n_cluster);
+        back_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
+    }
+
     Mat fore_labels;
-//    Mat fore_log_probs;
-    cv::Ptr<EM> fore_gmm_model = EM::create();
-    fore_gmm_model->setClustersNumber(em_n_cluster);
-    fore_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
-    fore_gmm_model->trainEM(foreMat, cv::noArray(), fore_labels, cv::noArray());
+//    fore_gmm_model->trainEM(foreMat, cv::noArray(), fore_labels, cv::noArray());
+    fore_gmm_model->trainEM(foreMat);
 
     Mat back_labels;
-//    Mat back_log_probs;
-    cv::Ptr<EM> back_gmm_model = EM::create();
-    back_gmm_model->setClustersNumber(em_n_cluster);
-    back_gmm_model->setCovarianceMatrixType(EM::COV_MAT_DIAGONAL);
-    back_gmm_model->trainEM(backMat, cv::noArray(), back_labels, cv::noArray());
-
+//    back_gmm_model->trainEM(backMat, cv::noArray(), back_labels, cv::noArray());
+    back_gmm_model->trainEM(backMat);
 
     Mat sample(1, channel, CV_64FC1);
     for(int x = 0; x < img.rows; ++x)

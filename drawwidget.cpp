@@ -125,7 +125,7 @@ void DrawWidget::compute()
         {
             int reg_x = forePos[i].x() / float(max_x) * (img_wid-1);
             int reg_y = forePos[i].y() / float(max_y) * (img_hei-1);
-            foreP.push_back(std::make_pair(reg_x, reg_y));
+            foreP.push_back(std::make_pair(reg_y, reg_x));
         }
     }
 
@@ -135,15 +135,15 @@ void DrawWidget::compute()
         {
             int reg_x = backPos[i].x() / float(max_x) * (img_wid-1);
             int reg_y = backPos[i].y() / float(max_y) * (img_hei-1);
-            backP.push_back(std::make_pair(reg_x, reg_y));
+            backP.push_back(std::make_pair(reg_y, reg_x));
         }
     }
-    gc.setBackPositions(backP);
-    gc.setForePositions(foreP);
+//    gc.setBackPositions(backP);
+//    gc.setForePositions(foreP);
 //    gc.setImage(origion_img);
 //    result_img=gc.compute();
     gc.loadImage(this->img_path);
-    gc.mincut(foreP, backP);
+    gc.run(foreP, backP);
 
     this->setAutoFillBackground(true);
     qDebug()<<"start compute.";

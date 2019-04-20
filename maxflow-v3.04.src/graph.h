@@ -395,7 +395,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline void Graph<captype,tcaptype,flowtype>::add_tweights(node_id i, tcaptype cap_source, tcaptype cap_sink)
 {
-	assert(i >= 0 && i < node_num);
+    printf("%d", node_num);
+    assert(i >= 0 && i < node_num);
 
 	tcaptype delta = nodes[i].tr_cap;
 	if (delta > 0) cap_source += delta;
