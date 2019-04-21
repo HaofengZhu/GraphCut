@@ -46,8 +46,12 @@ INCLUDEPATH += C:\OpenCV\build_x86\install\include
 INCLUDEPATH += C:\OpenCV\build_x86\install\include\opencv
 INCLUDEPATH += C:\OpenCV\build_x86\install\include\opencv2
 
-LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_img_hash345d.lib
-LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_world345d.lib
+#LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_img_hash345d.lib
+#LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_world345d.lib
+
+
+LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_img_hash345.lib
+LIBS += C:\OpenCV\build_x86\install\x86\vc15\lib\opencv_world345.lib
 
 CONFIG += mobility
 MOBILITY = 

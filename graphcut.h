@@ -24,6 +24,7 @@ public:
     void loadImage(cv::Mat& img);
     void run(PointList& fpos, PointList& bpos);
     std::vector<std::vector<int>>& getLabelMask();
+    std::string getResultImg();
     void clear();
 
 private:

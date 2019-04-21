@@ -144,14 +144,10 @@ void DrawWidget::compute()
 //    result_img=gc.compute();
     gc.loadImage(this->img_path);
     gc.run(foreP, backP);
-
-    this->setAutoFillBackground(true);
-    qDebug()<<"start compute.";
-    QPalette pal(this->palette());
-    pal.setColor(QPalette::Background, Qt::white);
-    this->setAutoFillBackground(true);
-    this->setPalette(pal);
-
+    std::string path=gc.getResultImg();
+    result_img=QImage(QString::fromStdString(path));
+    setImage(result_img);
+//    QFile::remove(QString::fromStdString(path));
 }
 
 void DrawWidget::clear()

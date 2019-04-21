@@ -51,6 +51,20 @@ std::vector<std::vector<int>>& GraphCut::getLabelMask()
     return this->res_mask;
 }
 
+std::string GraphCut::getResultImg()
+{
+    cv::Mat res(img);
+    for(int i = 0; i < res_mask.size(); ++i) {
+        for(int j = 0; j < res_mask[0].size(); ++j) {
+            if(res_mask[i][j] == BACKGROUD_LABEL)
+                img.at<cv::Vec3b>(i,j) = cv::Vec3b(0, 0, 0);
+        }
+    }
+    std::string res_path("result.jpg");
+    cv::imwrite(res_path, res);
+    return res_path;
+}
+
 void GraphCut::clear()
 {
     graph->reset();
